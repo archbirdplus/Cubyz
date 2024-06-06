@@ -7,7 +7,7 @@ jobs:
     Explore:
         runs-on: macos-latest
         steps:
-            - run: echo "job triggered by ${{ github.event_name }} event.
+            - run: echo "job triggered by ${{ github.event_name }} event."
             - run: echo "job running on os ${{ runner.os }} event."
             - run: echo "runner: ${{ runner }}"
             - run: echo "runner: ${{ runner }}"
