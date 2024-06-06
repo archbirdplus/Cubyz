@@ -1,24 +1,24 @@
 name: Actions demo
 run-name: ${{ github.actor }} is testing out GitHub Actions.
 on:
-    push:
-        branches: ["master"]
+  push:
+    branches: ["master"]
 jobs:
-    Explore:
-        runs-on: macos-latest
-        steps:
-            - run: echo "job triggered by ${{ github.event_name }} event."
-            - run: echo "job running on os ${{ runner.os }} event."
-            - name: check out repo code
-              uses: actions/checkout@v4
-            - run: echo "${{ github.repository }} cloned, ready"
-            - name: Named task 2
-                run: |
-                    ls ${{ github.workspace }}
-            - name: tree
-                run: |
-                    brew install tree
-                    pwd
-                    tree
-            - run: "conclude with ${{ job.status }}"
+  Explore:
+    runs-on: macos-latest
+    steps:
+      - run: echo "job triggered by ${{ github.event_name }} event."
+      - run: echo "job running on os ${{ runner.os }} event."
+      - name: check out repo code
+        uses: actions/checkout@v4
+      - run: echo "${{ github.repository }} cloned, ready"
+      - name: Named task 2
+        run: |
+          ls ${{ github.workspace }}
+      - name: tree
+        run: |
+          brew install tree
+          pwd
+          tree
+      - run: "conclude with ${{ job.status }}"
 
