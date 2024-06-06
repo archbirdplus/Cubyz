@@ -9,8 +9,6 @@ jobs:
         steps:
             - run: echo "job triggered by ${{ github.event_name }} event."
             - run: echo "job running on os ${{ runner.os }} event."
-            - run: echo "runner: ${{ runner }}"
-            - run: echo "runner: ${{ runner }}"
             - name: check out repo code
                 uses: actions/checkout@v4
             - run: echo "${{ github.repository }} cloned, ready"
