@@ -14,11 +14,11 @@ jobs:
       - run: echo "${{ github.repository }} cloned, ready"
       - name: Named task 2
         run: |
+          pwd
           ls ${{ github.workspace }}
       - name: tree
         run: |
           brew install tree
-          pwd
           tree
       - run: "conclude with ${{ job.status }}"
 
