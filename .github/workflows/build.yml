@@ -1,0 +1,17 @@
+name: Build Cubyz Workflow
+
+run-name: Build Cubyz
+
+on:
+  push:
+    branches: [ "master", "actions" ]
+
+jobs:
+  Build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./run_linux.sh
+        name: Run build script
+      - run: file ~/zig-out/bin/Cubyzig
+      
