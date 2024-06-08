@@ -22,9 +22,8 @@ jobs:
       # todo: Cubyz-app: change ~ to some root path
       - uses: actions/checkout@v4
         with:
-          branch: "main"
-          owner: "Archbirdplus"
-          repository: "Cubyz-app"
+          ref: "main"
+          repository: "Archbirdplus/Cubyz-app"
       - run: tree -d
       - run: cp ./zig-out/bin/Cubyzig Cubyz-app/Cubyz.app/Contents/MacOS/
       - run: cd Cubyz-app
