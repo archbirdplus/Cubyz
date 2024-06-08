@@ -20,19 +20,13 @@ jobs:
       - run: file ./zig-out/bin/Cubyzig
       # todo: download a libGL that I upload elsewhere
       # todo: Cubyz-app: change ~ to some root path
+      # move out to exit Cubyz dir
+      - run: cd ..
       - uses: actions/checkout@v4
         with:
           ref: "main"
           repository: "Archbirdplus/Cubyz-app"
-      # checkout cds into the repo, get back out
-      - run: cd ..
-      - run: brew install tree
-      - run: ls; tree -d
-      - run: cp ./zig-out/bin/Cubyzig Cubyz-app/Cubyz.app/Contents/MacOS/
-      # return back in
-      - run: cd Cubyz-app
-      # NB: the cd might not carry over if its bash -e 'd
+      # checkout now sends "us" to Cubyz-app
       - run: ./all.sh
-      # NB: might need git://path (https://stackoverflow.com/questions/16187849)
       # todo: github-release the app
       
