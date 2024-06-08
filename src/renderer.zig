@@ -113,15 +113,9 @@ var lastWidth: u31 = 0;
 var lastHeight: u31 = 0;
 var lastFov: f32 = 0;
 pub fn updateViewport(width: u31, height: u31, fov: f32) void {
-	if(main.settings.resolutionScale < 0) {
-		lastWidth = width >> @intCast(-main.settings.resolutionScale);
-		lastHeight = height >> @intCast(-main.settings.resolutionScale);
-	} else {
-		lastWidth = width;
-		lastHeight = height;
-	}
+	lastWidth = @intFromFloat(@as(f32, @floatFromInt(width))*main.settings.resolutionScale);
+	lastHeight = @intFromFloat(@as(f32, @floatFromInt(height))*main.settings.resolutionScale);
 	lastFov = fov;
-	c.glViewport(0, 0, lastWidth, lastHeight);
 	game.projectionMatrix = Mat4f.perspective(std.math.degreesToRadians(fov), @as(f32, @floatFromInt(lastWidth))/@as(f32, @floatFromInt(lastHeight)), zNear, zFar);
 	worldFrameBuffer.updateSize(lastWidth, lastHeight, c.GL_RGB16F);
 	worldFrameBuffer.unbind();
@@ -155,7 +149,7 @@ pub fn crosshairDirection(rotationMatrix: Mat4f, fovY: f32, width: u31, height: 
 	const cameraRight = vec.xyz(invRotationMatrix.mulVec(Vec4f{1, 0, 0, 1}));
 
 	const screenSize = Vec2f{@floatFromInt(width), @floatFromInt(height)};
-	const screenCoord = (crosshair.window.pos + crosshair.window.contentSize*Vec2f{0.5, 0.5}*@as(Vec2f, @splat(crosshair.window.scale)))*@as(Vec2f, @splat(main.gui.scale));
+	const screenCoord = (crosshair.window.pos + crosshair.window.contentSize*Vec2f{0.5, 0.5}*@as(Vec2f, @splat(crosshair.window.scale)))*@as(Vec2f, @splat(main.gui.scale*main.settings.resolutionScale));
 
 	const halfVSide = std.math.tan(std.math.degreesToRadians(fovY)*0.5);
 	const halfHSide = halfVSide*screenSize[0]/screenSize[1];
@@ -518,6 +512,7 @@ pub const MenuBackGround = struct {
 		lastTime = newTime;
 		const viewMatrix = Mat4f.rotationZ(angle);
 		shader.bind();
+		updateViewport(lastWidth, lastHeight, 70.0);
 
 		c.glUniformMatrix4fv(uniforms.viewMatrix, 1, c.GL_TRUE, @ptrCast(&viewMatrix));
 		c.glUniformMatrix4fv(uniforms.projectionMatrix, 1, c.GL_TRUE, @ptrCast(&game.projectionMatrix));
@@ -686,7 +681,7 @@ pub const MeshSelection = struct {
 	}
 
 	var posBeforeBlock: Vec3i = undefined;
-	var selectedBlockPos: ?Vec3i = null;
+	pub var selectedBlockPos: ?Vec3i = null;
 	var selectionMin: Vec3f = undefined;
 	var selectionMax: Vec3f = undefined;
 	var lastPos: Vec3d = undefined;

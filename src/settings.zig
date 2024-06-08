@@ -17,7 +17,7 @@ pub var entityDistance: u16 = 2;
 
 pub var cpuThreads: ?u64 = null;
 
-pub var anisotropicFiltering: bool = true;
+pub var anisotropicFiltering: u8 = 4.0;
 
 
 pub var fov: f32 = 70;
@@ -26,7 +26,7 @@ pub var mouseSensitivity: f32 = 1;
 
 pub var renderDistance: u16 = 7;
 
-pub var resolutionScale: i32 = 0;
+pub var resolutionScale: f32 = 1;
 
 pub var bloom: bool = true;
 
@@ -80,6 +80,8 @@ pub fn init() void {
 			}
 		}
 	}
+
+	if(resolutionScale != 1 and resolutionScale != 0.5 and resolutionScale != 0.25) resolutionScale = 1;
 
 	// keyboard settings:
 	const keyboard = json.getChild("keyboard");
