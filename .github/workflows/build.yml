@@ -17,7 +17,14 @@ jobs:
       # todo: cache zig
       # todo: cache compiler_rt, zig-cache, zig-out
       # todo: split packaging into a separate github artifact/workflow
-      - run: file ~/zig-out/bin/Cubyzig
-      # todo: package into app file, create dmg image
+      - run: file ./zig-out/bin/Cubyzig
+      # todo: download a libGL that I upload elsewhere
+      # todo: Cubyz-app: change ~ to some root path
+      - run: git clone git@github.com:archbirdplus/Cubyz-app.git
+      - run: cp ./zig-out/bin/Cubyzig Cubyz-app/Cubyz.app/Contents/MacOS/
+      - run: cd Cubyz-app
+      # NB: the cd might not carry over if its bash -e 'd
+      - run: ./all.sh
+      # NB: might need git://path (https://stackoverflow.com/questions/16187849)
       # todo: github-release the app
       
