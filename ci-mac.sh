@@ -32,7 +32,7 @@ fi
 VERSION=zig-$OS-$ARCH-$BASE_VERSION
 
 mkdir -p compiler/zig
-wget -O compiler/archive.tar.xz https://ziglang.org/builds/"$VERSION".tar.xz
+wget -O compiler/archive.tar.xz https://ziglang.org/builds/"$VERSION".tar.xz --progress=dot
 if [ $? != 0 ]
 then
 	echo "Failed to download the Zig compiler."
