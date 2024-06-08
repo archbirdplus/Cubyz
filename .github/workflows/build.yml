@@ -21,12 +21,15 @@ jobs:
       # todo: download a libGL that I upload elsewhere
       # todo: Cubyz-app: change ~ to some root path
       # move out to exit Cubyz dir
+      - run: pwd; ls -d
       - run: cd ..
+      - run: pwd; ls -d
       - uses: actions/checkout@v4
         with:
           ref: "main"
           repository: "Archbirdplus/Cubyz-app"
       # checkout now sends "us" to Cubyz-app
+      - run: pwd; ls -d
       - run: ./all.sh
       # todo: github-release the app
       
