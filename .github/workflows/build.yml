@@ -20,7 +20,12 @@ jobs:
       - run: file ./zig-out/bin/Cubyzig
       # todo: download a libGL that I upload elsewhere
       # todo: Cubyz-app: change ~ to some root path
-      - run: git clone git@github.com:archbirdplus/Cubyz-app.git
+      - uses: actions/checkout@v4
+        with:
+          branch: "main"
+          owner: "Archbirdplus"
+          repository: "Cubyz-app"
+      - run: tree -d
       - run: cp ./zig-out/bin/Cubyzig Cubyz-app/Cubyz.app/Contents/MacOS/
       - run: cd Cubyz-app
       # NB: the cd might not carry over if its bash -e 'd
