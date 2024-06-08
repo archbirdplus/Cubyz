@@ -41,10 +41,10 @@ jobs:
           release_name: Automated build for commit ${{ github.sha }}
           body: "
           This is a compiled release of Cubyz for Macs.\n
-          Installation:
-          - Open the .dmg file.
-          - Move Cubyz into a privileged folder such as /Applications, ~/Applications, or ~/Desktop.
-          - Right click the app -> Open -> Open Anyways to open the app if it doesn't work on the first try.
+          Installation:\n
+          - Open the .dmg file.\n
+          - Move Cubyz into a privileged folder such as /Applications, ~/Applications, or ~/Desktop.\n
+          - Right click the app -> Open -> Open Anyways to open the app if it doesn't work on the first try.\n
           "
           draft: false
           prerelease: false
