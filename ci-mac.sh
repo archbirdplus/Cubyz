@@ -42,5 +42,6 @@ tar --xz -xf compiler/archive.tar.xz --directory compiler/zig --strip-components
 
 ./compiler/zig/zig build -Doptimize=ReleaseFast
 
+echo "If there are no errors from zig, build complete!"
 # Cubyz is now in ./zig-out/bin/Cubyzig
 
