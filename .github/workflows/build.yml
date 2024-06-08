@@ -13,5 +13,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: ./run_linux.sh; echo "probably crashed :)"
         name: Run build script
+      # todo: get Cubyz from cache
+      # todo: cache zig
+      # todo: cache compiler_rt, zig-cache, zig-out
+      # todo: split packaging into a separate github artifact/workflow
       - run: file ~/zig-out/bin/Cubyzig
+      # todo: package into app file, create dmg image
+      # todo: github-release the app
       
