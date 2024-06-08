@@ -29,5 +29,33 @@ jobs:
           repository: "Archbirdplus/Cubyz-app"
       - run: brew install imagemagick
       - run: ./Cubyz-app/all.sh
-      # todo: github-release the app
-      
+
+      # some code from https://github.com/actions/create-release README
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: Cubyz-${{ github.ref }}
+          release_name: Automated build for commit ${{ github.sha }}
+          body: "
+          This is a compiled release of Cubyz for Macs.\n
+          Installation:
+          - Open the .dmg file.
+          - Move Cubyz into a privileged folder such as /Applications, ~/Applications, or ~/Desktop.
+          - Right click the app -> Open -> Open Anyways to open the app if it doesn't work on the first try.
+          "
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: Cubyz-app/Cubyz.dmg
+          asset_name: Cubyz.dmg
+          # asset_content_type: application/zip
