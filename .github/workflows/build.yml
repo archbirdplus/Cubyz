@@ -11,21 +11,21 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - run: ./ci-mac.sh
+        path: "Cubyz"
+      - run: ./Cubyz/ci-mac.sh
         name: Run build script
       # todo: get Cubyz from cache
       # todo: cache zig
       # todo: cache compiler_rt, zig-cache, zig-out
       # todo: split packaging into a separate github artifact/workflow
-      - run: file ./zig-out/bin/Cubyzig
+      - run: file Cubyz/zig-out/bin/Cubyzig
       # todo: download a libGL that I upload elsewhere (already found in -app)
       # todo: Cubyz-app: change ~ to some root path
       - uses: actions/checkout@v4
         with:
-          path: "../Cubyz-app"
+          path: "Cubyz-app"
           ref: "main"
           repository: "Archbirdplus/Cubyz-app"
-      - run: pwd; ls -d ../Cubyz-app
-      - run: ../Cubyz-app/all.sh
+      - run: ./Cubyz-app/all.sh
       # todo: github-release the app
       
