@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - run: ./run_linux.sh; echo "probably crashed :)"
+      - run: ./ci-mac.sh
         name: Run build script
       # todo: get Cubyz from cache
       # todo: cache zig
