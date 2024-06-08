@@ -18,7 +18,7 @@ jobs:
       # todo: cache compiler_rt, zig-cache, zig-out
       # todo: split packaging into a separate github artifact/workflow
       - run: file ./zig-out/bin/Cubyzig
-      # todo: download a libGL that I upload elsewhere
+      # todo: download a libGL that I upload elsewhere (already found in -app)
       # todo: Cubyz-app: change ~ to some root path
       # move out to exit Cubyz dir
       - run: pwd; ls -d
