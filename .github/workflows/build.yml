@@ -27,6 +27,7 @@ jobs:
           path: "Cubyz-app"
           ref: "main"
           repository: "Archbirdplus/Cubyz-app"
+      - run: brew install imagemagick
       - run: ./Cubyz-app/all.sh
       # todo: github-release the app
       
