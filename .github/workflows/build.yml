@@ -24,9 +24,10 @@ jobs:
         with:
           ref: "main"
           repository: "Archbirdplus/Cubyz-app"
-      - run: brew install tree
-      - run: tree -d
+      # checkout cds into the repo, get back out
+      - run: cd ..
       - run: cp ./zig-out/bin/Cubyzig Cubyz-app/Cubyz.app/Contents/MacOS/
+      # return back in
       - run: cd Cubyz-app
       # NB: the cd might not carry over if its bash -e 'd
       - run: ./all.sh
