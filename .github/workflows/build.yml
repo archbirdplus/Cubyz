@@ -11,7 +11,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-        path: "Cubyz"
+        with:
+          path: "Cubyz"
       - run: ./Cubyz/ci-mac.sh
         name: Run build script
       # todo: get Cubyz from cache
