@@ -2,7 +2,7 @@ name: Actions demo
 run-name: ${{ github.actor }} is testing out GitHub Actions.
 on:
   push:
-    branches: ["actions", "master"]
+    branches: []
 jobs:
   Explore:
     runs-on: macos-latest
