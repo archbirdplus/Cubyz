@@ -1,3 +1,6 @@
+# todo: link to XQuartz libs (or just reference them)
+# todo: pivot to github.run_number for versions, commit shas for identification
+
 name: Build Cubyz Workflow
 
 run-name: Build Cubyz
