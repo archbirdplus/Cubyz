@@ -14,6 +14,7 @@ const network = @import("network.zig");
 const Connection = network.Connection;
 const ConnectionManager = network.ConnectionManager;
 const vec = @import("vec.zig");
+const Vec2f = vec.Vec2f;
 const Vec3f = vec.Vec3f;
 const Vec4f = vec.Vec4f;
 const Vec3d = vec.Vec3d;
@@ -51,10 +52,30 @@ const Box = struct {
 	max: Vec3d,
 };
 
+pub fn angleDelta(from: anytype, to: @TypeOf(from)) @TypeOf(from) {
+	var d = to - from;
+	while (d > std.math.pi) {
+		d -= 2*std.math.pi;
+	}
+	while (d < -std.math.pi) {
+		d += 2*std.math.pi;
+	}
+	return d;
+}
+
+pub fn approach(current: anytype, target: @TypeOf(current), inc: @TypeOf(current)) @TypeOf(current) {
+	if (current < target) {
+		return @min(current + inc, target);
+	} else if (current > target) {
+		return @max(current - inc, target);
+	}
+	return current;
+}
+
 pub const Player = struct {
 	pub var super: main.server.Entity = .{};
 	pub var id: u32 = 0;
-	pub var isFlying: Atomic(bool) = Atomic(bool).init(false);
+	pub var isFlying: Atomic(bool) = Atomic(bool).init(true);
 	pub var mutex: std.Thread.Mutex = std.Thread.Mutex{};
 	pub var inventory__SEND_CHANGES_TO_SERVER: Inventory = undefined;
 	pub var selectedSlot: u32 = 0;
@@ -67,6 +88,104 @@ pub const Player = struct {
 	pub const radius = 0.3;
 	pub const height = 1.8;
 	pub const eye = 1.5;
+
+	pub var flyVel: f32 = 0;
+	pub var flyAngle = Vec2f{0, 0};
+	pub var flyAngleVel = Vec2f{0, 0};
+
+	pub fn beginGlide() void {
+		flyVel = @as(f32, @floatCast(vec.length(super.vel)));
+		flyAngle = Vec2f {
+			@floatCast(std.math.atan2(super.vel[1], super.vel[0])),
+			@floatCast(std.math.asin(super.vel[2] / @max(0.1, vec.length(super.vel)))),
+		};
+		flyAngleVel = Vec2f {0, 0};
+	}
+
+	fn updateGliding(dt: f32, aimDir: Vec3f) void {
+		// const aimAngle = Vec2f {
+			// @floatCast(std.math.atan2(aimDir[1], aimDir[0])),
+			// @floatCast(std.math.asin(aimDir[2])),
+		// };
+
+		// flyAngleVel[0] += vec.dot(Vec2f{aimDir[1], aimDir[0]}, Vec2f{@floatCast(super.vel[0]), @floatCast(super.vel[1])})/flyVel * settings.glideAngleAccelerationHorizontal * dt;
+		// flyAngleVel[1] += vec.dot(Vec2f{aimDir[1], aimDir[0]}, Vec2f{@floatCast(super.vel[0]), @floatCast(super.vel[1])})/flyVel  * settings.glideAngleAccelerationVertical * dt;
+		// flyAngleVel[1] += (aimAngle[1] + flyAngle[1]) * settings.glideAngleAccelerationVertical * dt;
+
+		// std.log.debug("aim angle {d:.2}", .{aimAngle[1]});
+		// std.log.debug("fly angle {d:.2}", .{flyAngle[1]});
+
+		// Joystick angle replaced by look direction - flight
+		// const hDelta = vec.dot(Vec2f{aimDir[0], aimDir[1]}, Vec2f{@cos(flyingAngle[0]), @sin(flyingAngle[0])});
+		// const vDelta = std.math.asin(aimDir[2]/vec.length(aimDir)); // vec.dot(Vec2f{vec.length(vec.xy(aimDir)), aimDir[2]}, Vec2f{@cos(flyingAngle[1]), @sin(flyingAngle[1])});
+		// flyingAngleVel[0] = approach(flyingAngleVel[0], flyingAngleVel[0] + hDelta, 0.003 * dt);
+		// flyingAngleVel[1] = approach(flyingAngleVel[1], flyingAngleVel[1] + vDelta, 0.3 * dt);
+
+		// flyingAngleVel[0] = approach(flyingAngleVel[0], angleDelta(flyingAngle[0], aimAngle[0]) * 0.8, 0.1 * dt);
+		// flyingAngleVel[1] = approach(flyingAngleVel[1], -angleDelta(flyingAngle[1], aimAngle[1]) * 0.8, 0.1 * dt);
+
+		// forwardsFlyingVel -= settings.glidingClimbGravity * flyingAngle[1] * dt;
+		// forwardsFlyingVel -= settings.glidingFriction * dt;
+		// forwardsFlyingVel -= settings.glidingSteerGravity * (1 - @cos(flyingAngleVel[0])) * dt;
+		// forwardsFlyingVel = @max(0, forwardsFlyingVel);
+
+		// std.log.debug("pitch {d:.2}", .{flyingAngle[1]+0.01});
+
+ 		// if (forwardsFlyingVel > 80) {
+ 			// flyingAngle[1] += (forwardsFlyingVel - 60) * 0.00006 * dt;
+			// std.log.debug("adding to pitch {d:.2}", .{(forwardsFlyingVel - 1) * 0.6 * dt});
+ 		// } else if (forwardsFlyingVel > 30) {
+ 			// flyingAngle[1] += (forwardsFlyingVel - 60) * 0.0001 * dt;
+			// std.log.debug("adding to pitch {d:.2}", .{(forwardsFlyingVel - 1) * 1.0 * dt});
+ 		// } else {
+ 			// flyingAngle[1] -= 0.1 * dt;
+			// std.log.debug("adding to pitch {d:.2}", .{-0.1 * dt});
+ 		// }
+		// flyingAngleVel[1] -= 0.1 * dt;
+
+		// flyingAngleVel[1] += forwardsFlyingVel * 0.001 * dt;
+
+		// flyAngle += flyAngleVel;
+		// if (flyAngle[1] < -2) {
+			// flyAngle[1] = -2;
+			// flyAngleVel[1] = 0;
+		// } else if (flyAngle[1] > 2) {
+			// flyAngle[1] = 2;
+			// flyAngleVel[1] = 0;
+		// }
+		// flyAngleVel *= @as(Vec2f, @splat(0.9));
+		// flyingAngle[1] = @min(2, @max(-2, flyingAngle[1]));
+
+		var acc: Vec3f = .{0, 0, 0};
+		acc += Vec3f{0, 0, 9.8*0.1};
+		// directions in camera perspective: ahead, dorsal, starboard
+		// speeds in camera perspective: forwards, up, sideways
+		// relative to xyz: slide, rise
+		// direction in xy plane
+		const ahead = vec.normalize(aimDir); // camera face
+		const slide = Vec3f{aimDir[0], aimDir[1], 0}; // ground direction
+		const forwards = vec.dot(ahead, slide); // ground speed
+		const rise = Vec3f{0, 0, aimDir[2]}; // rise direction
+		const up = vec.dot(ahead, rise); // rise magnitude
+		const dorsal = @as(Vec3f, @splat(forwards)) * rise + @as(Vec3f, @splat(-up)) * slide;
+
+		const v = @as(f32, @floatCast(vec.length(super.vel)));
+		const vdir = @as(Vec3f, @floatCast(vec.normalize(super.vel)));
+		acc += ahead * @as(Vec3f, @splat(vec.dot(dorsal, vdir) * v * settings.glideFriction));
+		acc += dorsal * @as(Vec3f, @splat(vec.dot(dorsal, vdir) * v * settings.glideLift));
+
+		std.log.debug("grav {d:.2}", .{9.8*0.1});
+		std.log.debug("ahead {d:.2}", .{vec.dot(dorsal, vdir) * v * settings.glideFriction});
+		std.log.debug("dorsal {d:.2}", .{vec.dot(dorsal, vdir) * v * settings.glideLift});
+
+		super.vel += acc * @as(Vec3f, @splat(dt));
+		// super.vel = Vec3f {
+			// flyVel * @cos(flyAngle[1]) * @cos(flyAngle[0]),
+			// flyVel * @cos(flyAngle[1]) * @sin(flyAngle[0]),
+			// flyVel * @sin(flyAngle[1]),
+		// };
+		// std.log.debug("v {d:.2}, {d:.2}, {d:.2}", .{super.vel[0], super.vel[1], super.vel[2]});
+	}
 
 	fn loadFrom(json: JsonElement) void {
 		super.loadFrom(json);
@@ -430,10 +549,14 @@ pub fn flyToggle() void {
 	Player.isFlying.store(!Player.isFlying.load(.monotonic), .monotonic);
 }
 
+pub fn beginGlide() void {
+	Player.beginGlide();
+}
+
 pub fn update(deltaTime: f64) void {
 	if (main.renderer.mesh_storage.getBlock(@intFromFloat(@floor(Player.super.pos[0])), @intFromFloat(@floor(Player.super.pos[1])), @intFromFloat(@floor(Player.super.pos[2]))) != null) {		
 		var acc = Vec3d{0, 0, 0};
-		if (!Player.isFlying.load(.monotonic)) {
+		if (!Player.isFlying.load(.monotonic) and !KeyBoard.key("glide").pressed) {
 			acc[2] = -30 * deltaTime;
 		}
 
@@ -478,7 +601,7 @@ pub fn update(deltaTime: f64) void {
 						acc[2] += 5.45 * fricMul;
 					}
 				} else if (Player.onGround) {
-					Player.super.vel[2] = @sqrt(1.25 * 30 * 2);
+					Player.super.vel[2] = @sqrt(1.35 * 30 * 2);
 				}
 			}
 			if(KeyBoard.key("fall").pressed) {
@@ -496,15 +619,20 @@ pub fn update(deltaTime: f64) void {
 			main.Window.scrollOffset = 0;
 		}
 
-		Player.super.vel[0] += acc[0];
-		Player.super.vel[1] += acc[1];
-		Player.super.vel[2] += acc[2];
+		if(KeyBoard.key("glide").pressed and !Player.isFlying.load(.monotonic)) {
+			Player.updateGliding(@floatCast(deltaTime), vec.xyz(camera.direction));
+			// Vec2f{std.math.atan2(dir[0], dir[2]), std.math.atan2(dir[2], @sqrt(dir[0]*dir[0] + dir[1]*dir[1]))});
+		} else {
+			Player.super.vel[0] += acc[0];
+			Player.super.vel[1] += acc[1];
+			Player.super.vel[2] += acc[2];
 
-		Player.super.vel[0] *= fric;
-		Player.super.vel[1] *= fric;
+			Player.super.vel[0] *= fric;
+			Player.super.vel[1] *= fric;
 
-		if (Player.isFlying.load(.monotonic)) {
-			Player.super.vel[2] *= fric;
+			if (Player.isFlying.load(.monotonic)) {
+				Player.super.vel[2] *= fric;
+			}
 		}
 	}
 

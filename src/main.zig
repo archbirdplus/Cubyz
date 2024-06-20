@@ -296,6 +296,7 @@ pub const KeyBoard = struct {
 		.{.name = "right", .key = c.GLFW_KEY_D},
 		.{.name = "sprint", .key = c.GLFW_KEY_LEFT_CONTROL},
 		.{.name = "jump", .key = c.GLFW_KEY_SPACE},
+		.{.name = "glide", .key = c.GLFW_KEY_LEFT_SHIFT, .pressAction = &game.beginGlide},
 		.{.name = "fly", .key = c.GLFW_KEY_F, .pressAction = &game.flyToggle},
 		.{.name = "fall", .key = c.GLFW_KEY_LEFT_SHIFT},
 		.{.name = "fullscreen", .key = c.GLFW_KEY_F11, .releaseAction = &Window.toggleFullscreen},

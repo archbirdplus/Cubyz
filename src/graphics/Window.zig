@@ -312,6 +312,7 @@ pub fn init() void {
 		@panic("Failed to initialize GLFW");
 	}
 
+	c.glfwWindowHint(c.GLFW_FOCUSED, c.GLFW_TRUE);
 	c.glfwWindowHint(c.GLFW_OPENGL_DEBUG_CONTEXT, 1);
 	c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 4);
 	c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 6);
