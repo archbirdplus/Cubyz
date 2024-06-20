@@ -5,8 +5,9 @@ const main = @import("main.zig");
 
 // pub var glideAngleAccelerationVertical: f32 = 0.001;
 // pub var glideAngleAccelerationHorizontal: f32 = 0.001;
-pub var glideFriction: f32 = 0.01;
-pub var glideLift: f32 = 0.01;
+pub var glideLift: f32 = 20;
+pub var glideFriction: f32 = -2;
+pub var glideGravity: f32 = -1;
 
 pub const defaultPort: u16 = 47649;
 pub const connectionTimeout = 60_000_000_000;
