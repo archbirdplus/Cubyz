@@ -36,6 +36,8 @@ jobs:
         name: Construct app file
       - run: ls Cubyz-app/Cubyz.app
         name: Check app file
+      - run: ls Cubyz-app/Cubyz.dmg
+        name: Check dmg file
 
       # Now, Upload these artifacts to GitHub Releases. Hopefully failures would have stopped execution by now.
       # some code from https://github.com/actions/create-release README
