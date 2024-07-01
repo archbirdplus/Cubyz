@@ -22,7 +22,8 @@ jobs:
       # todo: cache zig
       # todo: cache compiler_rt, zig-cache, zig-out
       # todo: split packaging into a separate github artifact/workflow
-      - run: file Cubyz/zig-out/bin/Cubyzig
+      - run: ls Cubyz/zig-out/bin/Cubyzig
+        name: Check Cubyzig build
       # todo: download a libGL that I upload elsewhere (already found in -app)
       # todo: Cubyz-app: change ~ to some root path
       - uses: actions/checkout@v4
@@ -32,7 +33,11 @@ jobs:
           repository: "Archbirdplus/Cubyz-app"
       - run: brew install imagemagick
       - run: ./Cubyz-app/all.sh
-
+        name: Construct app file
+      - run: ls Cubyz-app/Cubyz.app
+        name: Check app file
+  Upload:
+      - needs: Build
       # some code from https://github.com/actions/create-release README
       - name: Create Release
         id: create_release
