@@ -37,7 +37,9 @@ jobs:
       - run: ls Cubyz-app/Cubyz.app
         name: Check app file
   Upload:
-      - needs: Build
+    needs: Build
+    runs-on: macos-latest
+    steps:
       # some code from https://github.com/actions/create-release README
       - name: Create Release
         id: create_release
