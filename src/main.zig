@@ -239,6 +239,10 @@ fn logToStdErr(comptime format: []const u8, args: anytype) void {
 }
 
 fn escape() void {
+	if(gui.selectedTextInput != null) {
+		gui.selectedTextInput = null;
+		return;
+	}
 	if(game.world == null) return;
 	gui.toggleGameMenu();
 }
@@ -292,6 +296,9 @@ pub const KeyBoard = struct {
 		.{.name = "right", .key = c.GLFW_KEY_D},
 		.{.name = "sprint", .key = c.GLFW_KEY_LEFT_CONTROL},
 		.{.name = "jump", .key = c.GLFW_KEY_SPACE},
+		.{.name = "fly", .key = c.GLFW_KEY_F, .pressAction = &game.flyToggle},
+		.{.name = "ghost", .key = c.GLFW_KEY_G, .pressAction = &game.ghostToggle},
+		.{.name = "hyperSpeed", .key = c.GLFW_KEY_H, .pressAction = &game.hyperSpeedToggle},
 		.{.name = "fall", .key = c.GLFW_KEY_LEFT_SHIFT},
 		.{.name = "fullscreen", .key = c.GLFW_KEY_F11, .releaseAction = &Window.toggleFullscreen},
 		.{.name = "placeBlock", .mouseButton = c.GLFW_MOUSE_BUTTON_RIGHT, .pressAction = &game.pressPlace, .releaseAction = &game.releasePlace},
@@ -429,12 +436,17 @@ pub fn main() void {
 	}
 
 	while(c.glfwWindowShouldClose(Window.window) == 0) {
-		c.glfwSwapBuffers(Window.window);
-		// Clear may also wait on vsync, so it's done before handling events:
-		gui.windowlist.gpu_performance_measuring.startQuery(.screenbuffer_clear);
-		c.glClearColor(0.5, 1, 1, 1);
-		c.glClear(c.GL_DEPTH_BUFFER_BIT | c.GL_STENCIL_BUFFER_BIT | c.GL_COLOR_BUFFER_BIT);
-		gui.windowlist.gpu_performance_measuring.stopQuery();
+		const isHidden = c.glfwGetWindowAttrib(Window.window, c.GLFW_ICONIFIED) == c.GLFW_TRUE;
+		if(!isHidden) {
+			c.glfwSwapBuffers(Window.window);
+			// Clear may also wait on vsync, so it's done before handling events:
+			gui.windowlist.gpu_performance_measuring.startQuery(.screenbuffer_clear);
+			c.glClearColor(0.5, 1, 1, 1);
+			c.glClear(c.GL_DEPTH_BUFFER_BIT | c.GL_STENCIL_BUFFER_BIT | c.GL_COLOR_BUFFER_BIT);
+			gui.windowlist.gpu_performance_measuring.stopQuery();
+		} else {
+			std.time.sleep(16_000_000);
+		}
 
 		Window.handleEvents();
 		file_monitor.handleEvents();
@@ -450,11 +462,13 @@ pub fn main() void {
 		if(game.world != null) { // Update the game
 			game.update(deltaTime);
 		}
-		c.glEnable(c.GL_CULL_FACE);
-		c.glEnable(c.GL_DEPTH_TEST);
-		renderer.render(game.Player.getPosBlocking());
 
-		{ // Render the GUI
+		if(!isHidden) {
+			c.glEnable(c.GL_CULL_FACE);
+			c.glEnable(c.GL_DEPTH_TEST);
+			const eye: Vec3d = .{0.0, 0.0, game.Player.eye};
+			renderer.render(game.Player.getPosBlocking() + eye);
+			// Render the GUI
 			gui.windowlist.gpu_performance_measuring.startQuery(.gui);
 			c.glDisable(c.GL_CULL_FACE);
 			c.glDisable(c.GL_DEPTH_TEST);

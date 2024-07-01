@@ -21,7 +21,7 @@ pub const BlockClass = enum(u8) {
 	unbreakable,
 	leaf,
 	fluid,
-	air
+	air,
 };
 
 var arena = main.utils.NeverFailingArenaAllocator.init(main.globalAllocator);
@@ -59,6 +59,7 @@ pub const Ore = struct {
 };
 
 var _transparent: [maxBlockCount]bool = undefined;
+var _collide: [maxBlockCount]bool = undefined;
 var _id: [maxBlockCount][]u8 = undefined;
 /// Time in seconds to break this block by hand.
 var _hardness: [maxBlockCount]f32 = undefined;
@@ -79,6 +80,7 @@ var _absorption: [maxBlockCount]u32 = undefined;
 /// GUI that is opened on click.
 var _gui: [maxBlockCount][]u8 = undefined;
 var _mode: [maxBlockCount]*RotationMode = undefined;
+var _lodReplacement: [maxBlockCount]u16 = undefined;
 
 var reverseIndices = std.StringHashMap(u16).init(allocator.allocator);
 
@@ -115,6 +117,7 @@ pub fn register(_: []const u8, id: []const u8, json: JsonElement) u16 {
 	_solid[size] = json.get(bool, "solid", true);
 	_gui[size] = allocator.dupe(u8, json.get([]const u8, "GUI", ""));
 	_transparent[size] = json.get(bool, "transparent", false);
+	_collide[size] = json.get(bool, "collide", true);
 	_alwaysViewThrough[size] = json.get(bool, "alwaysViewThrough", false);
 	_viewThrough[size] = json.get(bool, "viewThrough", false) or _transparent[size] or _alwaysViewThrough[size];
 	_hasBackFace[size] = json.get(bool, "hasBackFace", false);
@@ -172,10 +175,22 @@ fn registerBlockDrop(typ: u16, json: JsonElement) void {
 	}
 }
 
+fn registerLodReplacement(typ: u16, json: JsonElement) void {
+	if(json.get(?[]const u8, "lodReplacement", null)) |replacement| {
+		_lodReplacement[typ] = getByID(replacement);
+	} else {
+		_lodReplacement[typ] = typ;
+	}
+}
+
 pub fn finishBlocks(jsonElements: std.StringHashMap(JsonElement)) void {
 	var i: u16 = 0;
 	while(i < size) : (i += 1) {
 		registerBlockDrop(i, jsonElements.get(_id[i]) orelse continue);
+	}
+	i = 0;
+	while(i < size) : (i += 1) {
+		registerLodReplacement(i, jsonElements.get(_id[i]) orelse continue);
 	}
 	for(ores.items, unfinishedOreSourceBlockIds.items) |*ore, oreIds| {
 		ore.sources = allocator.alloc(u16, oreIds.len);
@@ -222,6 +237,10 @@ pub const Block = packed struct {
 
 	pub inline fn transparent(self: Block) bool {
 		return _transparent[self.typ];
+	}
+
+	pub inline fn collide(self: Block) bool {
+		return _collide[self.typ];
 	}
 
 	pub inline fn id(self: Block) []u8 {
@@ -288,6 +307,10 @@ pub const Block = packed struct {
 	
 	pub inline fn mode(self: Block) *RotationMode {
 		return _mode[self.typ];
+	}
+	
+	pub inline fn lodReplacement(self: Block) u16 {
+		return _lodReplacement[self.typ];
 	}
 };
 

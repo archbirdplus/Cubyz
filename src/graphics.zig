@@ -1912,7 +1912,8 @@ pub const Image = struct {
 };
 
 pub const Fog = struct {
-	color: Vec3f,
+	fogColor: Vec3f,
+	skyColor: Vec3f,
 	density: f32,
 };
 
@@ -2012,12 +2013,16 @@ pub fn generateBlockTexture(blockType: u16) Texture {
 		var chunkAllocation: SubAllocation = .{.start = 0, .len = 0};
 		main.renderer.chunk_meshing.chunkBuffer.uploadData(&.{.{
 			.position = .{0, 0, 0},
+			.min = undefined,
+			.max = undefined,
 			.visibilityMask = 255,
 			.voxelSize = 1,
 			.vertexStartOpaque = undefined,
 			.faceCountsByNormalOpaque = undefined,
 			.vertexStartTransparent = undefined,
 			.vertexCountTransparent = undefined,
+			.visibilityState = 0,
+			.oldVisibilityState = 0,
 		}}, &chunkAllocation);
 		defer main.renderer.chunk_meshing.chunkBuffer.free(chunkAllocation);
 		if(block.transparent()) {

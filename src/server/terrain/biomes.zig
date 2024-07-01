@@ -7,6 +7,7 @@ const JsonElement = main.JsonElement;
 const terrain = main.server.terrain;
 const NeverFailingAllocator = main.utils.NeverFailingAllocator;
 const vec = @import("main.vec");
+const Vec3f = main.vec.Vec3f;
 const Vec3d = main.vec.Vec3d;
 
 const StructureModel = struct {
@@ -182,6 +183,14 @@ pub const Interpolation = enum(u8) {
 	square,
 };
 
+fn u32ToVec3(color: u32) Vec3f {
+	const r = @as(f32, @floatFromInt((color >> 16) & 0xFF)) / 255.0;
+	const g = @as(f32, @floatFromInt((color >> 8) & 0xFF)) / 255.0;
+	const b = @as(f32, @floatFromInt(color & 0xFF)) / 255.0;
+	
+	return .{ r, g, b };
+}
+
 /// A climate region with special ground, plants and structures.
 pub const Biome = struct {
 	const GenerationProperties = packed struct(u8) {
@@ -224,8 +233,12 @@ pub const Biome = struct {
 	caves: f32,
 	crystals: u32,
 	stalagmites: u32,
+	stalagmiteBlock: u16,
 	stoneBlockType: u16,
+	fogDensity: f32,
+	fogColor: Vec3f,
 	id: []const u8,
+	paletteId: u32,
 	structure: BlockStructure = undefined,
 	/// Whether the starting point of a river can be in this biome. If false rivers will be able to flow through this biome anyways.
 	supportsRivers: bool, // TODO: Reimplement rivers.
@@ -239,13 +252,16 @@ pub const Biome = struct {
 	isValidPlayerSpawn: bool,
 	chance: f32,
 
-	pub fn init(self: *Biome, id: []const u8, json: JsonElement) void {
+	pub fn init(self: *Biome, id: []const u8, paletteId: u32, json: JsonElement) void {
 		self.* = Biome {
 			.id = main.globalAllocator.dupe(u8, id),
+			.paletteId = paletteId,
 			.properties = GenerationProperties.fromJson(json.getChild("properties")),
 			.isCave = json.get(bool, "isCave", false),
 			.radius = json.get(f32, "radius", 256),
 			.stoneBlockType = blocks.getByID(json.get([]const u8, "stoneBlock", "cubyz:stone")),
+			.fogColor = u32ToVec3(json.get(u32, "fogColor", 0xffccccff)),
+			.fogDensity = json.get(f32, "fogDensity", 1.0)/15.0/128.0,
 			.roughness = json.get(f32, "roughness", 0),
 			.hills = json.get(f32, "hills", 0),
 			.mountains = json.get(f32, "mountains", 0),
@@ -253,12 +269,13 @@ pub const Biome = struct {
 			.caves = json.get(f32, "caves", -0.375),
 			.crystals = json.get(u32, "crystals", 0),
 			.stalagmites = json.get(u32, "stalagmites", 0),
+			.stalagmiteBlock = blocks.getByID(json.get([]const u8, "stalagmiteBlock", "cubyz:limestone")),
 			.minHeight = json.get(i32, "minHeight", std.math.minInt(i32)),
 			.maxHeight = json.get(i32, "maxHeight", std.math.maxInt(i32)),
 			.supportsRivers = json.get(bool, "rivers", false),
 			.preferredMusic = main.globalAllocator.dupe(u8, json.get([]const u8, "music", "")),
 			.isValidPlayerSpawn = json.get(bool, "validPlayerSpawn", false),
-			.chance = json.get(f32, "chance", 1),
+			.chance = json.get(f32, "chance", if(json == .JsonNull) 0 else 1),
 			.maxSubBiomeCount = json.get(f32, "maxSubBiomeCount", std.math.floatMax(f32)),
 		};
 		if(self.minHeight > self.maxHeight) {
@@ -543,11 +560,11 @@ pub fn deinit() void {
 	StructureModel.modelRegistry.clearAndFree(main.globalAllocator.allocator);
 }
 
-pub fn register(id: []const u8, json: JsonElement) void {
+pub fn register(id: []const u8, paletteId: u32, json: JsonElement) void {
 	std.log.debug("Registered biome: {s}", .{id});
 	std.debug.assert(!finishedLoading);
 	var biome: Biome = undefined;
-	biome.init(id, json);
+	biome.init(id, paletteId, json);
 	if(biome.isCave) {
 		caveBiomes.append(biome);
 	} else {
@@ -558,10 +575,6 @@ pub fn register(id: []const u8, json: JsonElement) void {
 pub fn finishLoading() void {
 	std.debug.assert(!finishedLoading);
 	finishedLoading = true;
-	// Sort the biomes by id, so they have a deterministic order when randomly sampling them based on the seed:
-	std.mem.sortUnstable(Biome, biomes.items, {}, struct {fn lessThan(_: void, lhs: Biome, rhs: Biome) bool {
-		return std.mem.order(u8, lhs.id, rhs.id) == .lt;
-	}}.lessThan);
 	byTypeBiomes = TreeNode.init(main.globalAllocator, biomes.items, 0);
 	for(biomes.items) |*biome| {
 		biomesById.put(biome.id, biome) catch unreachable;
@@ -583,6 +596,20 @@ pub fn finishLoading() void {
 		subBiomeDataList.deinit(main.globalAllocator);
 	}
 	unfinishedSubBiomes.clearAndFree(main.globalAllocator.allocator);
+}
+
+pub fn hasRegistered(id: []const u8) bool {
+	for(biomes.items) |*biome| {
+		if(std.mem.eql(u8, biome.id, id)) {
+			return true;
+		}
+	}
+	for(caveBiomes.items) |*biome| {
+		if(std.mem.eql(u8, biome.id, id)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 pub fn getById(id: []const u8) *const Biome {

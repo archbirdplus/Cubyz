@@ -130,7 +130,7 @@ pub fn render(playerPosition: Vec3d) void {
 		ambient[1] = @max(0.1, world.ambientLight);
 		ambient[2] = @max(0.1, world.ambientLight);
 		const skyColor = vec.xyz(world.clearColor);
-		game.fog.color = skyColor;
+		game.fog.skyColor = skyColor;
 
 		renderWorld(world, ambient, skyColor, playerPosition);
 		const startTime = std.time.milliTimestamp();
@@ -211,11 +211,9 @@ pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPo
 		mesh.prepareRendering(&chunkList);
 	}
 	gpu_performance_measuring.stopQuery();
-	gpu_performance_measuring.startQuery(.chunk_rendering);
 	if(chunkList.items.len != 0) {
 		chunk_meshing.drawChunksIndirect(chunkList.items, game.projectionMatrix, ambientLight, playerPos, false);
 	}
-	gpu_performance_measuring.stopQuery();
 
 	gpu_performance_measuring.startQuery(.entity_rendering);
 	entity.ClientEntityManager.render(game.projectionMatrix, ambientLight, .{1, 0.5, 0.25}, playerPos);
@@ -242,7 +240,6 @@ pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPo
 			meshes[i].prepareTransparentRendering(playerPos, &chunkList);
 		}
 		gpu_performance_measuring.stopQuery();
-		gpu_performance_measuring.startQuery(.transparent_rendering);
 		if(chunkList.items.len != 0) {
 			chunk_meshing.drawChunksIndirect(chunkList.items, game.projectionMatrix, ambientLight, playerPos, true);
 		}
@@ -251,7 +248,6 @@ pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPo
 	c.glDepthFunc(c.GL_LESS);
 	c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
 	chunk_meshing.endRender();
-	gpu_performance_measuring.stopQuery();
 
 	worldFrameBuffer.bindTexture(c.GL_TEXTURE3);
 
@@ -263,7 +259,7 @@ pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPo
 		Bloom.bindReplacementImage();
 	}
 	gpu_performance_measuring.startQuery(.final_copy);
-	c.glViewport(0, 0, main.Window.width, main.Window.height);
+	if(activeFrameBuffer == 0) c.glViewport(0, 0, main.Window.width, main.Window.height);
 	worldFrameBuffer.bindTexture(c.GL_TEXTURE3);
 	worldFrameBuffer.bindDepthTexture(c.GL_TEXTURE4);
 	worldFrameBuffer.unbind();
@@ -271,7 +267,7 @@ pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPo
 	c.glUniform1i(deferredUniforms.color, 3);
 	c.glUniform1i(deferredUniforms.depthTexture, 4);
 	if(!blocks.meshes.hasFog(playerBlock)) {
-		c.glUniform3fv(deferredUniforms.@"fog.color", 1, @ptrCast(&game.fog.color));
+		c.glUniform3fv(deferredUniforms.@"fog.color", 1, @ptrCast(&game.fog.skyColor));
 		c.glUniform1f(deferredUniforms.@"fog.density", game.fog.density);
 	} else {
 		const fogColor = blocks.meshes.fogColor(playerBlock);
@@ -337,7 +333,7 @@ const Bloom = struct {
 		buffer1.bind();
 		c.glUniform1i(colorExtractUniforms.depthTexture, 4);
 		if(!blocks.meshes.hasFog(playerBlock)) {
-			c.glUniform3fv(colorExtractUniforms.@"fog.color", 1, @ptrCast(&game.fog.color));
+			c.glUniform3fv(colorExtractUniforms.@"fog.color", 1, @ptrCast(&game.fog.skyColor));
 			c.glUniform1f(colorExtractUniforms.@"fog.density", game.fog.density);
 		} else {
 			const fogColor = blocks.meshes.fogColor(playerBlock);
@@ -512,7 +508,7 @@ pub const MenuBackGround = struct {
 		lastTime = newTime;
 		const viewMatrix = Mat4f.rotationZ(angle);
 		shader.bind();
-		updateViewport(lastWidth, lastHeight, 70.0);
+		updateViewport(main.Window.width, main.Window.height, 70.0);
 
 		c.glUniformMatrix4fv(uniforms.viewMatrix, 1, c.GL_TRUE, @ptrCast(&viewMatrix));
 		c.glUniformMatrix4fv(uniforms.projectionMatrix, 1, c.GL_TRUE, @ptrCast(&game.projectionMatrix));
@@ -530,7 +526,10 @@ pub const MenuBackGround = struct {
 
 		// Change the viewport and the matrices to render 4 cube faces:
 
+		const oldResolutionScale = main.settings.resolutionScale;
+		main.settings.resolutionScale = 1;
 		updateViewport(size, size, 90.0);
+		main.settings.resolutionScale = oldResolutionScale;
 		defer updateViewport(Window.width, Window.height, settings.fov);
 		
 		var buffer: graphics.FrameBuffer = undefined;
@@ -557,7 +556,8 @@ pub const MenuBackGround = struct {
 			// Draw to frame buffer.
 			buffer.bind();
 			c.glClear(c.GL_DEPTH_BUFFER_BIT | c.GL_STENCIL_BUFFER_BIT | c.GL_COLOR_BUFFER_BIT);
-			main.renderer.render(game.Player.getPosBlocking());
+			const eye: Vec3d = .{0.0, 0.0, game.Player.eye};
+			main.renderer.render(game.Player.getPosBlocking() + eye);
 			// Copy the pixels directly from OpenGL
 			buffer.bind();
 			c.glReadPixels(0, 0, size, size, c.GL_RGBA, c.GL_UNSIGNED_BYTE, pixels.ptr);
@@ -711,7 +711,7 @@ pub const MeshSelection = struct {
 		while(total_tMax < closestDistance) {
 			const block = mesh_storage.getBlock(voxelPos[0], voxelPos[1], voxelPos[2]) orelse break;
 			if(block.typ != 0) {
-				if(block.blockClass() != .fluid) { // TODO: Buckets could select fluids
+				if(block.blockClass() != .fluid and block.blockClass() != .air) { // TODO: Buckets could select fluids
 					const relativePlayerPos: Vec3f = @floatCast(pos - @as(Vec3d, @floatFromInt(voxelPos)));
 					if(block.mode().rayIntersection(block, inventoryStack, voxelPos, relativePlayerPos, _dir)) |intersection| {
 						if(intersection.distance <= closestDistance) {

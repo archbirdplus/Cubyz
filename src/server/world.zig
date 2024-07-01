@@ -228,6 +228,11 @@ const ChunkManager = struct {
 		for(server.world.?.chunkManager.terrainGenerationProfile.generators) |generator| {
 			generator.generate(server.world.?.seed ^ generator.generatorSeed, ch, caveMap, biomeMap);
 		}
+		if(pos.voxelSize != 1) { // Generate LOD replacements
+			for(ch.super.data.palette[0..ch.super.data.paletteLength]) |*block| {
+				block.typ = block.lodReplacement();
+			}
+		}
 		return ch;
 	}
 
@@ -311,7 +316,8 @@ pub const ServerWorld = struct {
 	pub const earthGravity: f32 = 9.81;
 
 	itemDropManager: ItemDropManager = undefined,
-	blockPalette: *main.assets.BlockPalette = undefined,
+	blockPalette: *main.assets.Palette = undefined,
+	biomePalette: *main.assets.Palette = undefined,
 	chunkManager: ChunkManager = undefined,
 
 	generated: bool = false,
@@ -375,22 +381,25 @@ pub const ServerWorld = struct {
 		}
 		self.wio = WorldIO.init(try files.openDir(try std.fmt.bufPrint(&buf, "saves/{s}", .{name})), self);
 		errdefer self.wio.deinit();
-		const blockPaletteJson = try files.readToJson(arenaAllocator, try std.fmt.bufPrint(&buf, "saves/{s}/palette.json", .{name}));
-		self.blockPalette = try main.assets.BlockPalette.init(main.globalAllocator, blockPaletteJson);
+		const blockPaletteJson = files.readToJson(arenaAllocator, try std.fmt.bufPrint(&buf, "saves/{s}/palette.json", .{name})) catch .JsonNull;
+		self.blockPalette = try main.assets.Palette.init(main.globalAllocator, blockPaletteJson, "cubyz:air");
 		errdefer self.blockPalette.deinit();
+		const biomePaletteJson = files.readToJson(arenaAllocator, try std.fmt.bufPrint(&buf, "saves/{s}/biome_palette.json", .{name})) catch .JsonNull;
+		self.biomePalette = try main.assets.Palette.init(main.globalAllocator, biomePaletteJson, null);
+		errdefer self.biomePalette.deinit();
 		errdefer main.assets.unloadAssets();
-
 		if(self.wio.hasWorldData()) {
 			self.seed = try self.wio.loadWorldSeed();
 			self.generated = true;
-			try main.assets.loadWorldAssets(try std.fmt.bufPrint(&buf, "saves/{s}/assets/", .{name}), self.blockPalette);
+			try main.assets.loadWorldAssets(try std.fmt.bufPrint(&buf, "saves/{s}/assets/", .{name}), self.blockPalette, self.biomePalette);
 		} else {
 			self.seed = main.random.nextInt(u48, &main.seed);
-			try main.assets.loadWorldAssets(try std.fmt.bufPrint(&buf, "saves/{s}/assets/", .{name}), self.blockPalette);
+			try main.assets.loadWorldAssets(try std.fmt.bufPrint(&buf, "saves/{s}/assets/", .{name}), self.blockPalette, self.biomePalette);
 			try self.wio.saveWorldData();
 		}
 		// Store the block palette now that everything is loaded.
 		try files.writeJson(try std.fmt.bufPrint(&buf, "saves/{s}/palette.json", .{name}), self.blockPalette.save(arenaAllocator));
+		try files.writeJson(try std.fmt.bufPrint(&buf, "saves/{s}/biome_palette.json", .{name}), self.biomePalette.save(arenaAllocator));
 
 		self.chunkManager = try ChunkManager.init(self, generatorSettings);
 		errdefer self.chunkManager.deinit();
@@ -411,6 +420,7 @@ pub const ServerWorld = struct {
 		self.chunkManager.deinit();
 		self.itemDropManager.deinit();
 		self.blockPalette.deinit();
+		self.biomePalette.deinit();
 		self.wio.deinit();
 		main.globalAllocator.free(self.name);
 		main.globalAllocator.destroy(self);
@@ -419,6 +429,7 @@ pub const ServerWorld = struct {
 
 	const RegenerateLODTask = struct {
 		pos: ChunkPosition,
+		storeMaps: bool,
 
 		const vtable = utils.ThreadPool.VTable{
 			.getPriority = @ptrCast(&getPriority),
@@ -427,10 +438,11 @@ pub const ServerWorld = struct {
 			.clean = @ptrCast(&clean),
 		};
 		
-		pub fn schedule(pos: ChunkPosition) void {
+		pub fn schedule(pos: ChunkPosition, storeMaps: bool) void {
 			const task = main.globalAllocator.create(RegenerateLODTask);
 			task.* = .{
 				.pos = pos,
+				.storeMaps = storeMaps,
 			};
 			main.threadPool.addTask(task, &vtable);
 		}
@@ -463,6 +475,22 @@ pub const ServerWorld = struct {
 							};
 							const ch = ChunkManager.getOrGenerateChunkAndIncreaseRefCount(pos);
 							defer ch.decreaseRefCount();
+							if(self.storeMaps and ch.super.pos.voxelSize == 1) { // TODO: Remove after first release
+								// Store the surrounding map pieces as well:
+								const mapStartX = ch.super.pos.wx -% main.server.terrain.SurfaceMap.MapFragment.mapSize/2 & ~@as(i32, main.server.terrain.SurfaceMap.MapFragment.mapMask);
+								const mapStartY = ch.super.pos.wy -% main.server.terrain.SurfaceMap.MapFragment.mapSize/2 & ~@as(i32, main.server.terrain.SurfaceMap.MapFragment.mapMask);
+								for(0..2) |dx| {
+									for(0..2) |dy| {
+										const mapX = mapStartX +% main.server.terrain.SurfaceMap.MapFragment.mapSize*@as(i32, @intCast(dx));
+										const mapY = mapStartY +% main.server.terrain.SurfaceMap.MapFragment.mapSize*@as(i32, @intCast(dy));
+										const map = main.server.terrain.SurfaceMap.getOrGenerateFragmentAndIncreaseRefCount(mapX, mapY, ch.super.pos.voxelSize);
+										defer map.decreaseRefCount();
+										if(!map.wasStored.swap(true, .monotonic)) {
+											map.save(null, .{});
+										}
+									}
+								}
+							}
 							var nextPos = pos;
 							nextPos.wx &= ~@as(i32, self.pos.voxelSize*chunk.chunkSize);
 							nextPos.wy &= ~@as(i32, self.pos.voxelSize*chunk.chunkSize);
@@ -486,6 +514,16 @@ pub const ServerWorld = struct {
 
 	fn regenerateLOD(self: *ServerWorld, newBiomeCheckSum: i64) !void {
 		std.log.info("Biomes have changed. Regenerating LODs... (this might take some time)", .{});
+		const hasSurfaceMaps = blk: {
+			const path = std.fmt.allocPrint(main.stackAllocator.allocator, "saves/{s}/maps", .{self.name}) catch unreachable;
+			defer main.stackAllocator.free(path);
+			var dir = std.fs.cwd().openDir(path, .{}) catch break :blk false;
+			defer dir.close();
+			break :blk true;
+		};
+		if(hasSurfaceMaps) {
+			try terrain.SurfaceMap.regenerateLOD(self.name);
+		}
 		// Delete old LODs:
 		for(1..main.settings.highestLOD+1) |i| {
 			const lod = @as(u32, 1) << @intCast(i);
@@ -529,7 +567,7 @@ pub const ServerWorld = struct {
 		}
 		// Load all the stored chunks and update their next LODs.
 		for(chunkPositions.items) |pos| {
-			RegenerateLODTask.schedule(pos);
+			RegenerateLODTask.schedule(pos, !hasSurfaceMaps);
 		}
 
 		self.mutex.lock();
@@ -571,7 +609,7 @@ pub const ServerWorld = struct {
 			}
 			const map = terrain.SurfaceMap.getOrGenerateFragmentAndIncreaseRefCount(self.spawn[0], self.spawn[1], 1);
 			defer map.decreaseRefCount();
-			self.spawn[2] = @intFromFloat(map.getHeight(self.spawn[0], self.spawn[1]) + 1);
+			self.spawn[2] = map.getHeight(self.spawn[0], self.spawn[1]) + 1;
 		}
 		self.generated = true;
 		const newBiomeCheckSum: i64 = @bitCast(terrain.biomes.getBiomeCheckSum(self.seed));
@@ -582,7 +620,7 @@ pub const ServerWorld = struct {
 		}
 		try self.wio.saveWorldData();
 		var buf: [32768]u8 = undefined;
-		const json = try files.readToJson(main.stackAllocator, try std.fmt.bufPrint(&buf, "saves/{s}/items.json", .{self.name}));
+		const json = files.readToJson(main.stackAllocator, try std.fmt.bufPrint(&buf, "saves/{s}/items.json", .{self.name})) catch .JsonNull;
 		defer json.free(main.stackAllocator);
 		self.itemDropManager.loadFrom(json);
 	}
