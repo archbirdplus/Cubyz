@@ -1,5 +1,4 @@
 # todo: link to XQuartz libs (or just reference them)
-# todo: pivot to github.run_number for versions, commit shas for identification
 
 name: Build Cubyz Workflow
 
@@ -47,7 +46,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
-          tag_name: Cubyz-${{ github.sha }}
+          tag_name: Cubyz-${{ github.run_number }}
           release_name: Automated build for commit ${{ github.sha }}
           body: "
           This is a compiled release of Cubyz for Macs.\n
