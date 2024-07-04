@@ -74,8 +74,8 @@ pub fn build(b: *std.Build) !void {
 		exe.linkFramework("IOKit");
 		exe.linkFramework("Cocoa");
 		exe.linkFramework("QuartzCore");
-		exe.addRPath(.{.cwd_relative = "/usr/local/GL/lib"});
 		exe.root_module.addRPathSpecial("@executable_path/../Library");
+		exe.addRPath(.{.cwd_relative = "/usr/local/GL/lib"});
 		exe.addRPath(.{.cwd_relative = "/opt/X11/lib"});
 	} else {
 		std.log.err("Unsupported target: {}\n", .{t.os.tag});
