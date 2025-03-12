@@ -241,7 +241,7 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
         var forkChance: f32 = 1.0;
         // if it is possible to squeeze in another branch
         if (currentSpan >= self.span - self.leafyDepth - self.shortBranchLength) {
-            leafChance = 0.1;
+            leafChance = 0.0;
             forkChance = 1.0;
         }
         if (currentSpan >= self.span - self.leafyDepth) {
