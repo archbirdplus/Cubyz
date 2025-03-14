@@ -31,9 +31,9 @@ pub fn deinit() void {}
 
 pub fn generate(map: *StructureMapFragment, worldSeed: u64) void {
 	const size = StructureMapFragment.size*map.pos.voxelSize;
-	const biomeMap = CaveBiomeMapView.init(main.stackAllocator, map.pos, size, 32);
+	const biomeMap = CaveBiomeMapView.init(main.stackAllocator, map.pos, size*2, 32*2);
 	defer biomeMap.deinit();
-	const margin = 16;
+	const margin = 16*2;
 	if(map.pos.voxelSize <= 4) {
 		const blueNoise = noise.BlueNoise.getRegionData(main.stackAllocator, map.pos.wx -% margin, map.pos.wy -% margin, size + 2*margin, size + 2*margin);
 		defer main.stackAllocator.free(blueNoise);
