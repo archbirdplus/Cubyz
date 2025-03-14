@@ -1,4 +1,5 @@
 .{
+    .chance = 10000,
 	.properties = .{
 		.mountain,
 	},
@@ -26,5 +27,23 @@
 			.height = 3,
 			.height_variation = 3,
 		},
+		.{
+			.id = "cubyz:complex_tree",
+			.leaves = "cubyz:oak_leaves",
+			.log = "cubyz:oak_log",
+			.top = "cubyz:oak_top",
+			.chance = 0.001,
+            .stem_length = 4,
+            .long_branch_length = 9,
+            .short_branch_length = 2,
+            .span = 20,
+            .forky = 40,
+            .spacing = 20,
+            .variance = 10,
+            .leaf_bunch_width = 4,
+            .leaf_bunch_thickness = 2,
+            .leafyDepth = 2,
+		},
+
 	},
 }

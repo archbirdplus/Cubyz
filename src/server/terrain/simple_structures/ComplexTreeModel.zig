@@ -56,6 +56,7 @@ pub fn loadModel(arenaAllocator: NeverFailingAllocator, parameters: ZonElement) 
 const Branch = struct {
     previous: *Branch,
     pos: Vec3f,
+    size: f32,
     hasLeaves: bool,
     rendered: bool,
 };
@@ -64,7 +65,9 @@ fn hypotSq3(x: anytype, y: anytype, z: anytype) @TypeOf(x) {
     return x*x + y*y + z*z;
 }
 
-pub fn generateBranch(branchA: *Branch, branchB: *Branch, chunk: *main.chunk.ServerChunk, block: main.blocks.Block) void {
+pub fn generateBranch(branchA: *Branch, branchB: *Branch, chunk: *main.chunk.ServerChunk, block: main.blocks.Block, size: f32) void {
+    const bound: i32 = @intFromFloat(@ceil(size));
+    const boundSquare: u32 = @intFromFloat(@ceil((size-1)*(size-1))+1);
     // ChatGPT :(
     const af: Vec3i = @intFromFloat(branchA.pos);
     const bf: Vec3i = @intFromFloat(branchB.pos);
@@ -85,8 +88,14 @@ pub fn generateBranch(branchA: *Branch, branchB: *Branch, chunk: *main.chunk.Ser
         err1 = 2 * dy - dx;
         err2 = 2 * dz - dx;
         for (0..@intCast(dx + 1)) |_| {
-            if (chunk.liesInChunk(x, y, z)) {
-                chunk.updateBlockIfDegradable(x, y, z, block);
+            var iz = -bound;
+            while(iz < bound) : (iz += 1) {
+                var iy = -bound;
+                while(iy < bound) : (iy += 1) {
+                    if ((iy*iy + iz*iz) < boundSquare and chunk.liesInChunk(x, y+iy, z+iz)) {
+                        chunk.updateBlockIfDegradable(x, y+iy, z+iz, block);
+                    }
+                }
             }
             if (err1 > 0) {
                 y += sy;
@@ -104,8 +113,14 @@ pub fn generateBranch(branchA: *Branch, branchB: *Branch, chunk: *main.chunk.Ser
         err1 = 2 * dx - dy;
         err2 = 2 * dz - dy;
         for (0..@intCast(dy + 1)) |_| {
-            if (chunk.liesInChunk(x, y, z)) {
-                chunk.updateBlockIfDegradable(x, y, z, block);
+            var ix = -bound;
+            while(ix < bound) : (ix += 1) {
+                var iz = -bound;
+                while(iz < bound) : (iz += 1) {
+                    if ((iz*iz + ix*ix) < boundSquare and chunk.liesInChunk(x+ix, y, z+iz)) {
+                        chunk.updateBlockIfDegradable(x+ix, y, z+iz, block);
+                    }
+                }
             }
             if (err1 > 0) {
                 x += sx;
@@ -123,8 +138,14 @@ pub fn generateBranch(branchA: *Branch, branchB: *Branch, chunk: *main.chunk.Ser
         err1 = 2 * dx - dz;
         err2 = 2 * dy - dz;
         for (0..@intCast(dz + 1)) |_| {
-            if (chunk.liesInChunk(x, y, z)) {
-                chunk.updateBlockIfDegradable(x, y, z, block);
+            var ix = -bound;
+            while(ix < bound) : (ix += 1) {
+                var iy = -bound;
+                while(iy < bound) : (iy += 1) {
+                    if ((iy*iy + ix*ix) < boundSquare and chunk.liesInChunk(x+ix, y+iy, z)) {
+                        chunk.updateBlockIfDegradable(x+ix, y+iy, z, block);
+                    }
+                }
             }
             if (err1 > 0) {
                 x += sx;
@@ -160,18 +181,22 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
     }
     // TODO: ceil forky is overestimated
     // TODO: check this remains true with diff types of branches
+    // std.debug.print("depth {}\n", .{branchDepth});
+    // std.debug.print("depth+ {}\n", .{1 +% branchDepth});
     const maxBranches = 1 + 2 * (1 + branchDepth) + @as(u32, @intFromFloat(@ceil(self.forky))) * branchDepth*branchDepth;
     const branches = main.stackAllocator.alloc(Branch, maxBranches);
     defer main.stackAllocator.free(branches);
-    branches[0] = .{
+    branches[0] = Branch{
         .previous = &branches[0],
         .pos = @floatFromInt(Vec3i{x, y, z}),
+        .size = 0,
         .hasLeaves = false,
         .rendered = true,
     };
-    branches[1] = .{
+    branches[1] = Branch{
         .previous = &branches[0],
         .pos = @as(Vec3f, @floatFromInt(Vec3i{x, y, z})) + Vec3f{0, 0, self.stemLength},
+        .size = 0,
         .hasLeaves = false,
         .rendered = false,
     };
@@ -179,37 +204,43 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
     // extend/fork/prune branches until leafy depth is reach_able_
     var currentSpan: f32 = 0;
     const nonLeafySpan = self.span - self.leafyDepth;
-    var currentBranch: usize = 2;
     var layerStart: usize = 1;
     var layerEnd: usize = 2;
     // make big branches that don't quite get to the leafy margins
     const radius: f32 = self.variance;
     const radius3 = @as(Vec3f, @splat(radius));
+    branchDepth = 1;
     while (currentSpan < nonLeafySpan) {
         var newEnd = layerEnd;
         for (branches[layerStart..layerEnd], 0..) |bud, i| {
             const prev = bud.previous;
             const pDelta = main.vec.normalize(bud.pos - prev.pos) * @as(Vec3f, @splat(self.longBranchLength));
+            const variation = random.nextFloatVector(3, seed) * @as(Vec3f, @splat(radius*2)) - radius3;
+            const nextPos = bud.pos + vec.normalize(pDelta + variation) * @as(Vec3f, @splat(self.longBranchLength));
             branches[newEnd] = Branch{
                 .previous = &branches[i],
-                .pos = bud.pos + pDelta + random.nextFloatVector(3, seed) * @as(Vec3f, @splat(radius*2)) - radius3,
+                .pos = nextPos,
+                .size = 0,
                 .hasLeaves = false,
                 .rendered = false,
             };
             newEnd += 1;
         }
         const extensions = layerEnd-layerStart;
-        const forks: u32 = @intFromFloat(self.forky - 1); // * @as(f32, @floatFromInt(extensions)));
+        const forks: u32 = @as(u32, @intFromFloat(self.forky)) * branchDepth; // * @as(f32, @floatFromInt(extensions)));
         // randomly add some more branches to the previous layer into this layer
         for (0..forks) |_| {
             // TODO nextIntBounded doesn't like usize
             const i = random.nextInt(u32, seed)%extensions + layerStart;
             const bud = branches[i];
             const prev = bud.previous;
-            const pDelta = main.vec.normalize(bud.pos - prev.pos) * @as(Vec3f, @splat(self.longBranchLength));
+            const pDelta = main.vec.normalize(bud.pos - prev.pos) * @as(Vec3f, @splat(self.shortBranchLength));
+            const variation = random.nextFloatVector(3, seed) * @as(Vec3f, @splat(radius*2)) - radius3;
+            const nextPos = bud.pos + vec.normalize(pDelta + variation) * @as(Vec3f, @splat(self.shortBranchLength));
             branches[newEnd] = Branch{
                 .previous = &branches[i],
-                .pos = bud.pos + pDelta + random.nextFloatVector(3, seed) * @as(Vec3f, @splat(radius*2)) - radius3,
+                .pos = nextPos,
+                .size = 0,
                 .hasLeaves = false,
                 .rendered = false,
             };
@@ -232,6 +263,7 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
         layerStart = layerEnd;
         layerEnd = newEnd;
         currentSpan += self.longBranchLength;
+        branchDepth += 1;
     }
     // purely extend+fork minor branches until leafy margin
     // alternatively fork or leaf in leafy margin
@@ -250,15 +282,18 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
         }
 
         const extensions = layerEnd-layerStart;
-        const forks: usize = extensions + @as(usize, @intFromFloat(self.forky * forkChance)); // * @as(f32, @floatFromInt(extensions)));
+        const forks: usize = extensions + branchDepth * @as(usize, @intFromFloat(self.forky * forkChance)); // * @as(f32, @floatFromInt(extensions)));
         for (0..forks) |_| {
             const i = random.nextInt(u32, seed)%extensions + layerStart;
             const bud = branches[i];
             const prev = bud.previous;
-            const pDelta = main.vec.normalize(bud.pos - prev.pos) * @as(Vec3f, @splat(self.shortBranchLength));
+            const pDelta = main.vec.normalize(bud.pos - prev.pos) * @as(Vec3f, @splat(self.longBranchLength));
+            const variation = random.nextFloatVector(3, seed) * @as(Vec3f, @splat(radius*2)) - radius3;
+            const nextPos = bud.pos + vec.normalize(pDelta + variation) * @as(Vec3f, @splat(self.longBranchLength));
             branches[newEnd] = Branch{
                 .previous = &branches[i],
-                .pos = bud.pos + pDelta + random.nextFloatVector(3, seed) * @as(Vec3f, @splat(radius*2)) - radius3,
+                .pos = nextPos,
+                .size = 0,
                 .hasLeaves = random.nextFloat(seed) < leafChance,
                 .rendered = false,
             };
@@ -268,9 +303,20 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
         layerStart = layerEnd;
         layerEnd = newEnd;
         currentSpan += self.shortBranchLength;
+        branchDepth += 1;
     }
 
-    currentBranch = layerEnd-1;
+    {
+        var i: i32 = @intCast(layerEnd-1);
+        while(i >= 0) : (i -= 1) {
+            var previous = &branches[@intCast(i)];
+            const mass: f32 = 1; // could be scaled for length
+            while (previous != &branches[0]) : (previous = previous.*.previous) {
+                previous.size += mass;
+            }
+        }
+    }
+    branches[0].size = branches[1].size + 1;
     for (branches[0..layerEnd], 0..) |branch, i| {
         if (!branch.hasLeaves) continue;
         const p = branch.previous.*.pos;
@@ -303,7 +349,8 @@ pub fn generate(self: *ComplexTreeModel, x: i32, y: i32, z: i32, chunk: *main.ch
             previous.rendered = true;
             // std.debug.print("start {} {} {}\n", .{previous.x, previous.y, previous.z});
             // std.debug.print("stop {} {} {}\n", .{previous.*.previous.x, previous.*.previous.y, previous.*.previous.z});
-            generateBranch(previous.*.previous, previous, chunk, self.woodBlock);
+            const size = std.math.pow(f32, previous.size, 0.333);
+            generateBranch(previous.*.previous, previous, chunk, self.woodBlock, size);
         }
     }
 }
