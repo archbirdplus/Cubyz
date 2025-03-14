@@ -744,7 +744,15 @@ pub noinline fn updateAndGetRenderChunks(conn: *network.Connection, frustum: *co
 	return meshList.items;
 }
 
-pub fn updateMeshes(targetTime: i64) void { // MARK: updateMeshes()
+const Ctx = struct {
+	playerPos: Vec3d,
+};
+
+fn ascPriority(ctx: Ctx, a: *chunk_meshing.ChunkMesh, b: *chunk_meshing.ChunkMesh) bool {
+	return a.pos.getPriority(ctx.playerPos) < b.pos.getPriority(ctx.playerPos);
+}
+
+pub noinline fn updateMeshes(targetTime: i64) void { // MARK: updateMeshes()
 	// First of all process all the block updates:
 	while(blockUpdateList.dequeue()) |blockUpdate| {
 		const pos = chunk.ChunkPosition{.wx = blockUpdate.x, .wy = blockUpdate.y, .wz = blockUpdate.z, .voxelSize = 1};
@@ -796,32 +804,23 @@ pub fn updateMeshes(targetTime: i64) void { // MARK: updateMeshes()
 			mapPointer.* = map;
 		}
 	}
-	while(updatableList.items.len != 0) {
-		// TODO: Find a faster solution than going through the entire list every frame.
-		var closestPriority: f32 = -std.math.floatMax(f32);
-		var closestIndex: usize = 0;
-		const playerPos = game.Player.getEyePosBlocking();
-		{
-			var i: usize = 0;
-			while(i < updatableList.items.len) {
-				const mesh = updatableList.items[i];
-				if(!isInRenderDistance(mesh.pos)) {
-					_ = updatableList.swapRemove(i);
-					mutex.unlock();
-					defer mutex.lock();
-					mesh.decreaseRefCount();
-					continue;
-				}
-				const priority = mesh.pos.getPriority(playerPos);
-				if(priority > closestPriority) {
-					closestPriority = priority;
-					closestIndex = i;
-				}
-				i += 1;
+	{
+		var i: usize = 0;
+		while(i < updatableList.items.len) {
+			const mesh = updatableList.items[i];
+			if(!isInRenderDistance(mesh.pos)) {
+				_ = updatableList.swapRemove(i);
+				mutex.unlock();
+				defer mutex.lock();
+				mesh.decreaseRefCount();
+				continue;
 			}
-			if(updatableList.items.len == 0) break;
+			i += 1;
 		}
-		const mesh = updatableList.swapRemove(closestIndex);
+	}
+	// std.sort.pdq(*chunk_meshing.ChunkMesh, updatableList.items, Ctx{.playerPos=game.Player.getEyePosBlocking()}, ascPriority);
+	while(updatableList.items.len != 0) {
+		const mesh = updatableList.pop();
 		mutex.unlock();
 		defer mutex.lock();
 		if(isInRenderDistance(mesh.pos)) {
@@ -840,6 +839,7 @@ pub fn updateMeshes(targetTime: i64) void { // MARK: updateMeshes()
 			}
 		} else {
 			mesh.decreaseRefCount();
+			@panic("test");
 		}
 		if(std.time.milliTimestamp() >= targetTime) break; // Update at least one mesh.
 	}
