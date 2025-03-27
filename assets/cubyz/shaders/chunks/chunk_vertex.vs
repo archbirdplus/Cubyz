@@ -83,14 +83,8 @@ void main() {
 		fullLight >> 0 & 31u
 	);
 	float cap = 31;
-	blockLight = cap * exp(blockLight/cap - 1);
-	vec3 lightRatio = vec3(
-		blockLight.x / (blockLight.y + blockLight.z),
-		blockLight.y / (blockLight.x + blockLight.z),
-		blockLight.z / (blockLight.y + blockLight.x)
-	);
-	float lightValue = blockLight.x + blockLight.y + blockLight.z;
-	blockLight = lightRatio * (lightValue / 3 - cap / exp(1));
+	vec3 q = exp(2*(blockLight/cap-1));
+	blockLight = q * max(blockLight.x, max(blockLight.y, blockLight.z));
 	light = max(sunLight*ambientLight, blockLight)/31;
 	isBackFace = encodedPositionAndLightIndex>>15 & 1;
 	ditherSeed = encodedPositionAndLightIndex & 15;
