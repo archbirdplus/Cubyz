@@ -60,6 +60,8 @@ pub var activeFrameBuffer: c_uint = 0;
 pub const reflectionCubeMapSize = 64;
 var reflectionCubeMap: graphics.CubeMapTexture = undefined;
 
+var torchToneMap: graphics.Texture = undefined;
+
 pub fn init() void {
 	deferredRenderPassPipeline = graphics.Pipeline.init(
 		"assets/cubyz/shaders/deferred_render_pass.vert",
@@ -92,6 +94,8 @@ pub fn init() void {
 	reflectionCubeMap = .init();
 	reflectionCubeMap.generate(reflectionCubeMapSize, reflectionCubeMapSize);
 	initReflectionCubeMap();
+	std.log.info("doing torch map", .{});
+	torchToneMap = .initFromFile("assets/cubyz/torch-tonemap.png");
 }
 
 pub fn deinit() void {
@@ -214,6 +218,7 @@ pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPo
 	c.glActiveTexture(c.GL_TEXTURE2);
 	blocks.meshes.reflectivityAndAbsorptionTextureArray.bind();
 	reflectionCubeMap.bindTo(4);
+	torchToneMap.bindTo(15); // bindTo?
 
 	chunk_meshing.quadsDrawn = 0;
 	chunk_meshing.transparentQuadsDrawn = 0;

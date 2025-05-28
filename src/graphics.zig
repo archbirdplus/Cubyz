@@ -23,6 +23,7 @@ const Vec4f = vec.Vec4f;
 const Vec2f = vec.Vec2f;
 const Vec2i = vec.Vec2i;
 const Vec3f = vec.Vec3f;
+const Vec3i = vec.Vec3i;
 
 const main = @import("main");
 const Window = main.Window;
@@ -2313,6 +2314,76 @@ pub const Texture = struct { // MARK: Texture
 		var result: Vec2i = undefined;
 		c.glGetTexLevelParameteriv(c.GL_TEXTURE_2D, 0, c.GL_TEXTURE_WIDTH, &result[0]);
 		c.glGetTexLevelParameteriv(c.GL_TEXTURE_2D, 0, c.GL_TEXTURE_HEIGHT, &result[1]);
+		return result;
+	}
+};
+
+pub const Texture3D = struct { // MARK: Texture
+	textureID: c_uint,
+	scale: Vec3i,
+
+	pub fn init(scale: Vec3i) Texture3D {
+		var self: Texture3D = undefined;
+		self.scale = scale;
+		c.glGenTextures(1, &self.textureID);
+		std.log.debug("texture3d id {}", .{self.textureID});
+		return self;
+	}
+
+	pub fn initFromFile(scale: Vec3i, path: []const u8) Texture3D {
+		const self = Texture3D.init(scale);
+		const image = Image.readFromFile(main.stackAllocator, path) catch |err| blk: {
+			std.log.err("Couldn't read image from {s}: {s}", .{path, @errorName(err)});
+			break :blk Image.defaultImage;
+		};
+		defer image.deinit(main.stackAllocator);
+		self.generate(image);
+		return self;
+	}
+
+	pub fn deinit(self: Texture3D) void {
+		c.glDeleteTextures(1, &self.textureID);
+	}
+
+	pub fn bindTo(self: Texture3D, binding: u5) void {
+		// std.log.info("binding, and also printing pixels", .{});
+		// const pixels: []u8 = @ptrCast(main.stackAllocator.alloc(u8, 32*32*32*4));
+		// defer main.stackAllocator.free(pixels);
+		c.glActiveTexture(@intCast(c.GL_TEXTURE0 + binding));
+		c.glBindTexture(c.GL_TEXTURE_3D, self.textureID);
+		// c.glGetTexImage(c.GL_TEXTURE_3D, 0, c.GL_RGBA, c.GL_UNSIGNED_BYTE, @ptrCast(pixels));
+		// std.log.info("pixels: {any}", .{pixels[0..100]});
+	}
+
+	pub fn bind(self: Texture3D) void {
+		c.glBindTexture(c.GL_TEXTURE_3D, self.textureID);
+	}
+
+	/// (Re-)Generates the GPU buffer.
+	pub fn generate(self: Texture3D, image: Image) void {
+		self.bind();
+
+		std.debug.assert(image.width * image.height == self.scale[0] * self.scale[1] * self.scale[2]);
+		c.glTexImage3D(c.GL_TEXTURE_3D, 0, c.GL_RGBA8, self.scale[0], self.scale[1], self.scale[2], 0, c.GL_RGBA, c.GL_UNSIGNED_BYTE, image.imageData.ptr);
+		c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_NEAREST);
+		c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
+		c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_R, c.GL_REPEAT);
+		c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_REPEAT);
+		c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_REPEAT);
+	}
+
+	pub fn render(self: Texture3D, pos: Vec2f, dim: Vec2f) void {
+		// TODO: not valid?
+		self.bindTo(0);
+		draw.boundImage(pos, dim);
+	}
+
+	pub fn size(self: Texture3D) Vec3i {
+		self.bind();
+		var result: Vec3i = undefined;
+		c.glGetTexLevelParameteriv(c.GL_TEXTURE_2D, 0, c.GL_TEXTURE_WIDTH, &result[0]);
+		c.glGetTexLevelParameteriv(c.GL_TEXTURE_2D, 0, c.GL_TEXTURE_HEIGHT, &result[1]);
+		c.glGetTexLevelParameteriv(c.GL_TEXTURE_2D, 0, c.GL_TEXTURE_DEPTH, &result[2]);
 		return result;
 	}
 };

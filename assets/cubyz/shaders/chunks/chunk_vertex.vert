@@ -17,6 +17,8 @@ layout(location = 2) uniform mat4 viewMatrix;
 layout(location = 3) uniform ivec3 playerPositionInteger;
 layout(location = 4) uniform vec3 playerPositionFraction;
 
+layout(binding = 15) uniform sampler2D torchToneMap;
+
 struct FaceData {
 	int encodedPositionAndLightIndex;
 	int textureAndQuad;
@@ -82,6 +84,22 @@ void main() {
 		fullLight >> 5 & 31u,
 		fullLight >> 0 & 31u
 	);
+    float w = 8;
+    float h = 4;
+    float flor = w*floor(blockLight.r / w); // [0, w]
+    float mod = blockLight.r - flor; // [0, w]
+    vec2 torchUV = vec2(
+        (blockLight.b + mod*32 + 0.01)/32/w,
+        (32*h - blockLight.g - flor/w*32 - 0.01)/32/h
+    );
+    // vec2 torchUV = vec2(
+        // (blockLight.r + mod)/32/w,
+        // 0.99//(32*h - blockLight.g - flor)/32/h
+    // );
+    blockLight = texture(torchToneMap, torchUV).rgb*32;
+    // blockLight = texture(torchToneMap, blockLight.xy/32.0).rgb*100;
+    // blockLight = texture(torchToneMap, vec3(0.25, 0.8, 0.31)).rgb*100;
+    // blockLight.r = texture(torchToneMap, blockLight).r == 0 ? 0 : 100;
 	light = max(sunLight*ambientLight, blockLight)/31;
 	isBackFace = encodedPositionAndLightIndex>>15 & 1;
 	ditherSeed = encodedPositionAndLightIndex & 15;
